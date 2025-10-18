@@ -1,7 +1,7 @@
 {
   "C_Cpp.intelliSenseEngine": "default",
   "idf.espIdfPath": "/home/azagaya/esp/esp-idf",
-  "idf.pythonInstallPath": "/usr/bin/python3",
+  "idf.pythonInstallPath": "C:\\Users\\Pablo\\.espressif\\tools\\idf-python\\3.11.2\\python.exe",
   "idf.openOcdConfigs": [
     "board/esp32-wrover-kit-3.3v.cfg"
   ],
@@ -22,5 +22,6 @@
     "mqtt5_client.h": "c",
     "esp_wifi.h": "c",
     "esp_event.h": "c"
-  }
+  },
+  "idf.portWin": "COM8"
 }

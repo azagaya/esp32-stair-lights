@@ -11,9 +11,10 @@
 
 #define MAX_SSID_LEN 32
 #define MAX_PASS_LEN 64
+#define MAX_SSIDS 2
 
-char ssid[MAX_SSID_LEN] = "FaIn-Privada";
-char password[MAX_PASS_LEN] = "radioactividad";
+char ssid[MAX_SSIDS][MAX_SSID_LEN] = {"DAVITEL_32117_2.4", "FaIn-Privada"};
+char password[MAX_SSIDS][MAX_PASS_LEN] = {"20355960936","radioactividad"};
 
 void app_main(void)
 {
@@ -23,9 +24,21 @@ void app_main(void)
     ESP_ERROR_CHECK(ret);
 
     wifi_init_sta();
-    wifi_connect(ssid, password);
+    int error;
+    int net_idx = -1;
+    do
+    {
+        net_idx++;
+        error = wifi_connect(ssid[net_idx], password[net_idx]);
+    } while (error && net_idx < MAX_SSIDS);
 
-    mqtt5_app_start();
-
+    if (error)
+    {
+        ESP_LOGE(TAG, "COULD NOT CONECT TO INTERNET");
+    }
+    else
+    {
+        mqtt5_app_start();
+    }
 
 }
