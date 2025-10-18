@@ -72,7 +72,7 @@ void wifi_init_sta()
                                                         &instance_got_ip));
 }
 
-void wifi_connect(char *ssid, char *password)
+int wifi_connect(char *ssid, char *password)
 {
                                                         
     wifi_config_t wifi_config = {};
@@ -95,13 +95,26 @@ void wifi_connect(char *ssid, char *password)
 
     /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
      * happened. */
+    int ret = 0;
     if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "connected to ap SSID:%s password:%s",
-                 ssid, password);
+        ESP_LOGI(TAG, "connected to ap SSID:%s password:%s", ssid, password);
     } else if (bits & WIFI_FAIL_BIT) {
         ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s",
                  ssid, password);
+        ret = -1;
     } else {
         ESP_LOGE(TAG, "UNEXPECTED EVENT");
+        ret = -2;
     }
+
+    if (ret)
+    {
+        ESP_LOGE(TAG, "STOPPING WIFI");
+        ESP_ERROR_CHECK(esp_wifi_disconnect());
+        ESP_ERROR_CHECK(esp_wifi_stop());
+    }
+
+    xEventGroupClearBits(s_wifi_event_group, WIFI_FAIL_BIT);
+    s_retry_num = 0;
+    return ret;
 }

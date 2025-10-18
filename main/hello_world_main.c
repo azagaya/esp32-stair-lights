@@ -13,8 +13,8 @@
 #define MAX_PASS_LEN 64
 #define MAX_SSIDS 2
 
-char ssid[MAX_SSIDS][MAX_SSID_LEN] = {"DAVITEL_32117_2.4", "FaIn-Privada"};
-char password[MAX_SSIDS][MAX_PASS_LEN] = {"20355960936","radioactividad"};
+char ssid[MAX_SSIDS][MAX_SSID_LEN] = {"FaIn-Privada","DAVITEL_32117_2.4"};
+char password[MAX_SSIDS][MAX_PASS_LEN] = {"radioactividad","20355960936"};
 
 void app_main(void)
 {
