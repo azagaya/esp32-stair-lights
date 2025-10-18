@@ -4,7 +4,6 @@ __pycache__/
 # esp-idf built binaries
 build/
 build_*_*/
-sdkconfig
 
 # idf-ci build run output
 build_summary_*.xml
@@ -16,3 +15,5 @@ pytest_embedded_log/
 
 # idf-component-manager output
 dependencies.lock
+
+.vscode/settings.json
