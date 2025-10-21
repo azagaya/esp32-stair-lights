@@ -6,8 +6,7 @@
 
 #include "wifi.h"
 #include "mqtt.h"
-
-#include "sdkconfig.h"
+#include "bluetooth.h"
 
 #include <nvs_flash.h>
 
@@ -18,6 +17,11 @@
 char ssid[MAX_SSIDS][MAX_SSID_LEN] = {"FaIn-Privada","DAVITEL_32117_2.4"};
 char password[MAX_SSIDS][MAX_PASS_LEN] = {"radioactividad","20355960936"};
 
+#define DEVICE_NAME 
+#define BLE_APPEARANCE 
+
+
+
 void app_main(void)
 {
 
@@ -25,8 +29,16 @@ void app_main(void)
     esp_err_t ret = nvs_flash_init();
     ESP_ERROR_CHECK(ret);
 
-    wifi_init_sta();
+    
     int error;
+
+    init_nimble();
+    gap_init("StairLights", 0x0595); // código para generic light controller;
+    nimble_host_config_init();
+
+    xTaskCreate(nimble_host_task, "NimBLE Host", 4*1024, NULL, 5, NULL);
+
+    wifi_init_sta();
     int net_idx = -1;
     do
     {
