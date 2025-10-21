@@ -7,6 +7,8 @@
 #include "wifi.h"
 #include "mqtt.h"
 
+#include "sdkconfig.h"
+
 #include <nvs_flash.h>
 
 #define MAX_SSID_LEN 32
