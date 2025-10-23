@@ -67,7 +67,7 @@ int gap_init(const char *device_name, int16_t appearance) {
                  device_name, rc);
         return rc;
     }
-
+    _appearance = appearance; // variable global estática
     rc = ble_svc_gap_device_appearance_set(appearance); 
     if (rc != 0) {
         ESP_LOGE(TAG, "failed to set device appearance, error code: %d", rc);
@@ -109,7 +109,23 @@ void nimble_host_config_init() {
 
 Nuevamente, llamamos `nimble_host_config_init` desde la función principal. En el callback de reset, simplemente mostramos un mensaje indicando lo que sucedión. En el callback de sync, comenzamos la el advertisement del dispostivo, para que pueda ser descubierto por otros.
 
-La función `adv_init` inicializa el advertisment, aunque no es muy útil explicarla en detalle.
+La función `adv_init` inicializa el advertisment que luego se inicia con `start_advertising`, aunque no es muy útil explicarlas en detalle. De todas formas, hay algunas lineas que son de interes:
+
+```c
+adv_fields.appearance = _appearance;
+adv_fields.appearance_is_present = 1;
+```
+En las líneas anteriores, utilizamos la apariencia seteada en `gap_init`.
+
+Con las siguientes instrucciones seteamos el modo de connección en "undirected-connectable", y en "general-discoverable" el modo detectable.
+
+```
+    adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
+    adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
+```
+
+
+
 
 Es necesario crear una tarea para bluetooth, para lo que definimos una función:
 
@@ -127,4 +143,36 @@ void nimble_host_task(void *param) {
 ```
 
 Y luego creamos la tarea en `app_main()` con `xTaskCreate(nimble_host_task, "NimBLE Host", 4*1024, NULL, 5, NULL);`.
+
+## GATT Server
+
+Un servidor GATT tiene la función de hacer accessible los datos y servicios ofrecidos por el dispositivo BLE a los clientes. De esta forma los clientes tiene una forma estandarizada de comunicarse con los dispositivos.
+
+Lo primero que hacemos es inicializar el servidor:
+
+```c
+int gatt_svc_init(void) {
+    /* Local variables */
+    int rc;
+
+    /* 1. GATT service initialization */
+    ble_svc_gatt_init();
+
+    /* 2. Update GATT services counter */
+    rc = ble_gatts_count_cfg(gatt_svr_svcs);
+    if (rc != 0) {
+        return rc;
+    }
+
+    /* 3. Add GATT services */
+    rc = ble_gatts_add_svcs(gatt_svr_svcs);
+    if (rc != 0) {
+        return rc;
+    }
+
+    return 0;
+}
+```
+
+La variable `gatt_svr_svcs` es una arreglo de estructuras, donde cada una define un servicio disponible en el dispositivo. Con éstas estructuras le decimos a los clientes como interactuar con el dispositivo.
 

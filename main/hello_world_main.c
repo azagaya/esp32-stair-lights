@@ -34,7 +34,9 @@ void app_main(void)
 
     init_nimble();
     gap_init("StairLights", 0x0595); // código para generic light controller;
+    gatt_svc_init();
     nimble_host_config_init();
+
 
     xTaskCreate(nimble_host_task, "NimBLE Host", 4*1024, NULL, 5, NULL);
 

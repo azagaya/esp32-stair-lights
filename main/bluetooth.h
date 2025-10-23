@@ -9,6 +9,9 @@
 
 #include "services/gap/ble_svc_gap.h"
 
+#include "host/ble_gatt.h"
+#include "services/gatt/ble_svc_gatt.h"
+
 
 static uint8_t own_addr_type;
 static uint8_t addr_val[6] = {0};
@@ -42,7 +45,7 @@ int gap_init(const char *device_name, int16_t appearance) {
     }
 
     rc = ble_svc_gap_device_appearance_set(appearance); 
-    _appearance = appearance;
+    _appearance = appearance; // almaceno en variable global para luego utilizarla en el advertisment
     if (rc != 0) {
         ESP_LOGE(TAG, "failed to set device appearance, error code: %d", rc);
         return rc;
@@ -129,7 +132,6 @@ static void start_advertising(void) {
         return;
     }
 
-    /* Set non-connetable and general discoverable mode to be a beacon */
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
 
@@ -273,7 +275,143 @@ void nimble_host_config_init() {
 
     /* Store host configuration */
     ble_store_config_init();
+
 }
+
+static const ble_uuid16_t light_sensor_svc_uuid = BLE_UUID16_INIT(0xFF01); // uuid custom
+static const ble_uuid16_t ambient_light_chr_uuid = BLE_UUID16_INIT(0x2A77); // luminous intensity uuid
+
+static uint16_t ambient_light_cr_val_handle;
+static int8_t ambient_light_value;
+
+static const ble_uuid16_t command_svc_uuid = BLE_UUID16_INIT(0xFF02); 
+static const ble_uuid16_t command_tx_chr_uuid = BLE_UUID16_INIT(0xFF03);
+
+static uint16_t command_tx_chr_val_handle;
+
+static int ambient_light_cb(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg)
+{
+        /* Local variables */
+    int rc;
+
+    /* Handle access events */
+    /* Note: Heart rate characteristic is read only */
+    switch (ctxt->op) {
+
+    /* Read characteristic event */
+    case BLE_GATT_ACCESS_OP_READ_CHR:
+        if (attr_handle == ambient_light_cr_val_handle) {
+            /* Update access buffer value */
+            ambient_light_value = 100 + rand() % 10;
+            rc = os_mbuf_append(ctxt->om, &ambient_light_value,
+                                sizeof(ambient_light_value));
+        }
+        else
+        {
+            rc = BLE_ATT_ERR_UNLIKELY;
+        }
+        break;
+
+    /* Unknown event */
+    default:
+        rc = BLE_ATT_ERR_UNLIKELY;
+    }
+
+    return rc;
+}
+
+#define MAX_COMMAND_LENGTH 256
+static char received_command[MAX_COMMAND_LENGTH + 1] = {0}; 
+static uint16_t command_len = 0;
+
+static int command_tx_chr_access(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt *ctxt, void *arg)
+{
+    if (attr_handle != command_tx_chr_val_handle) return BLE_ATT_ERR_UNLIKELY; 
+    
+    switch (ctxt->op) {
+        case BLE_GATT_ACCESS_OP_WRITE_CHR:
+            if (ctxt->om->om_len > MAX_COMMAND_LENGTH) {
+                return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+            }
+            
+            // 2. Copiar los datos al buffer local (la cadena de comando)
+            command_len = ctxt->om->om_len;
+            if (command_len > 0) {
+                // Copiar hasta el límite y asegurar terminación nula (NULL)
+                memcpy(received_command, ctxt->om->om_data, command_len);
+                received_command[command_len] = '\0'; 
+            } else {
+                received_command[0] = '\0';
+            }
+            BLE_HS_LOG(INFO, "Comando recibido (conn %d): %s\n", conn_handle, received_command);
+            
+            return 0; // Éxito en la operación
+
+        default:
+            return BLE_ATT_ERR_UNLIKELY;
+    }
+}
+
+static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
+    /* Heart rate service */
+    {.type = BLE_GATT_SVC_TYPE_PRIMARY,
+     .uuid = &light_sensor_svc_uuid.u,
+     .characteristics =
+         (struct ble_gatt_chr_def[]){
+             {/* Heart rate characteristic */
+              .uuid = &ambient_light_chr_uuid.u,
+              .access_cb = ambient_light_cb,
+              .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_INDICATE,
+              .val_handle = &ambient_light_cr_val_handle},
+             {
+                 0, /* No more characteristics in this service. */
+             }}},
+
+    /* Automation IO service */
+    {
+        .type = BLE_GATT_SVC_TYPE_PRIMARY,
+        .uuid = &command_svc_uuid.u,
+        .characteristics =
+            (struct ble_gatt_chr_def[]){/* LED characteristic */
+                                        {
+                                            .uuid = &command_tx_chr_uuid.u,
+                                            .access_cb = command_tx_chr_access,
+                                            .flags = BLE_GATT_CHR_F_WRITE,
+                                            .val_handle = &command_tx_chr_val_handle
+                                        },
+                                        {
+                                            0
+                                        }
+                                    },
+    },
+
+    {
+        0, /* No more services. */
+    },
+};
+
+int gatt_svc_init(void) {
+    /* Local variables */
+    int rc;
+
+    /* 1. GATT service initialization */
+    ble_svc_gatt_init();
+
+    /* 2. Update GATT services counter */
+    rc = ble_gatts_count_cfg(gatt_svr_svcs);
+    if (rc != 0) {
+        return rc;
+    }
+
+    /* 3. Add GATT services */
+    rc = ble_gatts_add_svcs(gatt_svr_svcs);
+    if (rc != 0) {
+        return rc;
+    }
+
+    return 0;
+}
+
 
 void nimble_host_task(void *param) {
     /* Task entry log */
